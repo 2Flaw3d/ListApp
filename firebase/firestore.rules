@@ -10,13 +10,18 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid));
     }
 
-    function isSpaceOwner(spaceId) {
-      return isSignedIn() &&
-        get(/databases/$(database)/documents/spaces/$(spaceId)).data.ownerId == request.auth.uid;
+    function canReadSpace(spaceId) {
+      return isSignedIn() && (
+        resource.data.ownerId == request.auth.uid ||
+        isSpaceMember(spaceId)
+      );
     }
 
-    function hasSpaceAccess(spaceId) {
-      return isSpaceOwner(spaceId) || isSpaceMember(spaceId);
+    function hasSpaceAccessById(spaceId) {
+      return isSignedIn() && (
+        get(/databases/$(database)/documents/spaces/$(spaceId)).data.ownerId == request.auth.uid ||
+        isSpaceMember(spaceId)
+      );
     }
 
     function listSpaceId(listId) {
@@ -30,24 +35,27 @@ service cloud.firestore {
     }
 
     match /spaces/{spaceId} {
-      allow read: if hasSpaceAccess(spaceId);
+      allow read: if canReadSpace(spaceId);
       allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if isSpaceOwner(spaceId);
+      allow update, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
     }
 
     match /spaces/{spaceId}/members/{memberId} {
-      allow read: if isSpaceOwner(spaceId) || (isSignedIn() && request.auth.uid == memberId);
-      allow create, update, delete: if isSpaceOwner(spaceId);
+      allow read: if isSignedIn() && (
+        request.auth.uid == memberId ||
+        get(/databases/$(database)/documents/spaces/$(spaceId)).data.ownerId == request.auth.uid
+      );
+      allow create, update, delete: if isSignedIn() &&
+        get(/databases/$(database)/documents/spaces/$(spaceId)).data.ownerId == request.auth.uid;
     }
 
     match /lists/{listId} {
-      allow read: if hasSpaceAccess(resource.data.spaceId);
-      allow create: if isSignedIn() && hasSpaceAccess(request.resource.data.spaceId);
-      allow update, delete: if hasSpaceAccess(resource.data.spaceId);
+      allow read, update, delete: if hasSpaceAccessById(resource.data.spaceId);
+      allow create: if isSignedIn() && hasSpaceAccessById(request.resource.data.spaceId);
     }
 
     match /lists/{listId}/items/{itemId} {
-      allow read, create, update, delete: if hasSpaceAccess(listSpaceId(listId));
+      allow read, create, update, delete: if hasSpaceAccessById(listSpaceId(listId));
     }
   }
 }

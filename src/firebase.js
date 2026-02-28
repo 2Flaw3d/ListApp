@@ -22,7 +22,8 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
-  where
+  where,
+  writeBatch
 } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -82,14 +83,17 @@ async function createSpace(user, name) {
   const cleanName = name.trim();
   if (!cleanName) throw new Error("Inserisci un nome spazio.");
 
-  const spaceRef = await addDoc(collection(db, "spaces"), {
+  const spaceRef = doc(collection(db, "spaces"));
+  const memberRef = doc(db, "spaces", spaceRef.id, "members", user.uid);
+
+  const batch = writeBatch(db);
+  batch.set(spaceRef, {
     name: cleanName,
     ownerId: user.uid,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
-
-  await setDoc(doc(db, "spaces", spaceRef.id, "members", user.uid), {
+  batch.set(memberRef, {
     uid: user.uid,
     role: "owner",
     email: user.email ?? "",
@@ -97,6 +101,8 @@ async function createSpace(user, name) {
     displayName: user.displayName ?? "Owner",
     addedAt: serverTimestamp()
   });
+
+  await batch.commit();
 }
 
 async function inviteMemberByEmail(spaceId, rawEmail) {

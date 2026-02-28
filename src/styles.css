@@ -309,3 +309,17 @@ button:disabled {
     width: 100%;
   }
 }
+.appTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.versionTag {
+  font-size: 0.72rem;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  font-weight: 600;
+}

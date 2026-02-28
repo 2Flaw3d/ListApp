@@ -42,12 +42,17 @@ const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });
 
-function isIosStandaloneMode() {
-  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+function isIosDevice() {
+  if (typeof navigator === "undefined") return false;
   const ua = navigator.userAgent || "";
-  const isIos = /iPhone|iPad|iPod/i.test(ua);
-  const isStandalone = window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true;
-  return isIos && isStandalone;
+  return /iPhone|iPad|iPod/i.test(ua);
+}
+
+function isIosStandaloneMode() {
+  if (typeof window === "undefined") return false;
+  const standaloneByMedia = window.matchMedia?.("(display-mode: standalone)")?.matches;
+  const standaloneByNavigator = window.navigator?.standalone === true;
+  return isIosDevice() && (standaloneByMedia || standaloneByNavigator);
 }
 
 function sortItems(a, b) {
@@ -86,7 +91,17 @@ async function ensureUserProfile(user) {
 }
 
 async function loginWithGoogle() {
-  await setPersistence(auth, browserLocalPersistence);
+  try {
+    await setPersistence(auth, browserLocalPersistence);
+  } catch {
+    // Ignore persistence setup errors on restrictive iOS contexts.
+  }
+
+  if (isIosDevice() || isIosStandaloneMode()) {
+    await signInWithRedirect(auth, googleProvider);
+    return;
+  }
+
   try {
     const result = await signInWithPopup(auth, googleProvider);
     await ensureUserProfile(result.user);

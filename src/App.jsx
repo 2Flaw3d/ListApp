@@ -25,6 +25,8 @@ import {
   watchUserSpaces
 } from "./firebase";
 
+const APP_VERSION = "1.0.0";
+
 function App() {
   const [user, setUser] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
@@ -141,6 +143,7 @@ function App() {
   const completedCount = items.filter((x) => x.completed).length;
   const visibleItems = useMemo(() => (showOpenOnly ? items.filter((x) => !x.completed) : items), [items, showOpenOnly]);
   const isOwner = activeSpace?.ownerId === user?.uid;
+
   useEffect(() => {
     if (!selectedSpaceId || !isOwner) {
       setMembers([]);
@@ -190,7 +193,7 @@ function App() {
   if (!user) {
     return (
       <main className="auth">
-        <h1>Shared Lists</h1>
+        <h1 className="appTitle">Liste <span className="versionTag">v{APP_VERSION}</span></h1>
         <p>Liste condivise in tempo reale, installabili su iPhone come web app.</p>
         <button onClick={() => withGuard(() => loginWithGoogle())} disabled={busy}>
           Entra con Google
@@ -204,7 +207,7 @@ function App() {
     <main className="layout">
       <header className="topbar">
         <div>
-          <h1>Shared Lists</h1>
+          <h1 className="appTitle">Liste <span className="versionTag">v{APP_VERSION}</span></h1>
           <p>
             {user.displayName} | {user.email}
           </p>

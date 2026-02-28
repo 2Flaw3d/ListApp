@@ -28,6 +28,7 @@ function App() {
   const [items, setItems] = useState([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem("theme") === "dark");
 
   const [newSpaceName, setNewSpaceName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
@@ -43,6 +44,17 @@ function App() {
       setLoadingAuth(false);
     });
   }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (isDarkMode) {
+      root.setAttribute("data-theme", "dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      root.removeAttribute("data-theme");
+      localStorage.setItem("theme", "light");
+    }
+  }, [isDarkMode]);
 
   useEffect(() => {
     if (!user) {
@@ -148,9 +160,14 @@ function App() {
             {user.displayName} | {user.email}
           </p>
         </div>
-        <button className="ghost" onClick={() => logout()}>
-          Logout
-        </button>
+        <div className="topActions">
+          <button className="ghost" onClick={() => setIsDarkMode((prev) => !prev)}>
+            {isDarkMode ? "Light" : "Dark"}
+          </button>
+          <button className="ghost" onClick={() => logout()}>
+            Logout
+          </button>
+        </div>
       </header>
 
       <section className="panel">
@@ -193,7 +210,9 @@ function App() {
             <h2>Condividi spazio: {activeSpace.name}</h2>
             {isOwner ? (
               <button
-                className="danger"
+                className="danger iconBtn"
+                title="Elimina spazio"
+                aria-label="Elimina spazio"
                 disabled={busy}
                 onClick={() =>
                   withGuard(async () => {
@@ -204,7 +223,7 @@ function App() {
                   })
                 }
               >
-                Elimina spazio
+                -
               </button>
             ) : null}
           </div>
@@ -281,7 +300,9 @@ function App() {
               {activeList.name} ({completedCount}/{items.length})
             </h2>
             <button
-              className="danger"
+              className="danger iconBtn"
+              title="Elimina lista"
+              aria-label="Elimina lista"
               disabled={busy}
               onClick={() =>
                 withGuard(async () => {
@@ -291,7 +312,7 @@ function App() {
                 })
               }
             >
-              Elimina lista
+              -
             </button>
           </div>
 
@@ -326,7 +347,9 @@ function App() {
                   <span className={item.completed ? "done" : ""}>{item.text}</span>
                 </label>
                 <button
-                  className="danger small"
+                  className="danger iconBtn small"
+                  title="Elimina elemento"
+                  aria-label="Elimina elemento"
                   disabled={busy}
                   onClick={() =>
                     withGuard(async () => {
@@ -334,7 +357,7 @@ function App() {
                     })
                   }
                 >
-                  Elimina
+                  -
                 </button>
               </li>
             ))}

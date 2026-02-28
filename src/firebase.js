@@ -267,10 +267,22 @@ function watchLists(spaceId, onData, onError) {
 }
 
 function watchItems(listId, onData, onError) {
-  const itemsQ = query(collection(db, "lists", listId, "items"), orderBy("createdAt", "asc"));
+  const itemsRef = collection(db, "lists", listId, "items");
   return onSnapshot(
-    itemsQ,
-    (snap) => onData(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    itemsRef,
+    (snap) => {
+      const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      rows.sort((a, b) => {
+        const aSec = a?.createdAt?.seconds ?? 0;
+        const bSec = b?.createdAt?.seconds ?? 0;
+        if (aSec !== bSec) return aSec - bSec;
+        const aNs = a?.createdAt?.nanoseconds ?? 0;
+        const bNs = b?.createdAt?.nanoseconds ?? 0;
+        if (aNs !== bNs) return aNs - bNs;
+        return a.id.localeCompare(b.id);
+      });
+      onData(rows);
+    },
     onError
   );
 }

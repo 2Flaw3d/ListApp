@@ -7,8 +7,21 @@
   --brand-2: #115e59;
   --line: #dce2e1;
   --error: #b91c1c;
-  --danger: #b42318;
-  --danger-2: #912018;
+  --danger: #9f1239;
+  --danger-2: #881337;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0b1220;
+  --panel: #101a2d;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --brand: #0ea5a4;
+  --brand-2: #0b8b8b;
+  --line: #22324d;
+  --error: #f87171;
+  --danger: #e11d48;
+  --danger-2: #be123c;
 }
 
 * {
@@ -20,6 +33,10 @@ body {
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   color: var(--text);
   background: radial-gradient(circle at top left, #d7f6f1, var(--bg) 35%);
+}
+
+:root[data-theme="dark"] body {
+  background: radial-gradient(circle at top left, #13263c, var(--bg) 35%);
 }
 
 main {
@@ -51,6 +68,11 @@ main {
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
+}
+
+.topActions {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .topbar h1,
@@ -87,6 +109,8 @@ input {
   border-radius: 10px;
   padding: 0.5rem 0.75rem;
   font-size: 0.95rem;
+  color: var(--text);
+  background: var(--panel);
 }
 
 button {
@@ -110,8 +134,8 @@ button:disabled {
 }
 
 .ghost {
-  background: #e6f4f2;
-  color: var(--brand-2);
+  background: color-mix(in srgb, var(--brand) 14%, var(--panel));
+  color: var(--text);
 }
 
 .danger {
@@ -122,9 +146,22 @@ button:disabled {
   background: var(--danger-2);
 }
 
-.small {
+.iconBtn {
+  width: 32px;
+  min-width: 32px;
   min-height: 32px;
-  padding: 0.2rem 0.6rem;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.small {
+  width: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  height: 28px;
 }
 
 .chips {
@@ -134,13 +171,13 @@ button:disabled {
 }
 
 .chip {
-  background: #f1f5f9;
-  color: #1f2937;
+  background: color-mix(in srgb, var(--panel) 65%, #94a3b8 35%);
+  color: var(--text);
 }
 
 .chip.active {
-  background: #d3f2ee;
-  color: #064e3b;
+  background: color-mix(in srgb, var(--brand) 20%, var(--panel));
+  color: var(--text);
 }
 
 .items {
@@ -155,7 +192,7 @@ button:disabled {
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 0.5rem 0.7rem;
-  background: #fafdfc;
+  background: color-mix(in srgb, var(--panel) 84%, #ffffff 16%);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -197,5 +234,9 @@ button:disabled {
   .items li {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .topActions {
+    width: 100%;
   }
 }

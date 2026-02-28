@@ -164,13 +164,28 @@ async function toggleItem(listId, itemId, completed) {
 }
 
 function watchUserSpaces(userId, onData, onError) {
+  const memberSpaces = new Map();
+  const ownedSpaces = new Map();
+
+  const emit = () => {
+    const merged = new Map([...memberSpaces, ...ownedSpaces]);
+    const spaces = [...merged.values()].sort((a, b) => {
+      const aSec = a?.updatedAt?.seconds ?? 0;
+      const bSec = b?.updatedAt?.seconds ?? 0;
+      return bSec - aSec;
+    });
+    onData(spaces);
+  };
+
   const membershipsQ = query(
     collectionGroup(db, "members"),
     where("uid", "==", userId),
     orderBy("addedAt", "desc")
   );
 
-  return onSnapshot(
+  const ownedSpacesQ = query(collection(db, "spaces"), where("ownerId", "==", userId));
+
+  const unsubMembers = onSnapshot(
     membershipsQ,
     async (snap) => {
       const spaceRefs = snap.docs.map((d) => d.ref.parent.parent).filter(Boolean);
@@ -181,10 +196,28 @@ function watchUserSpaces(userId, onData, onError) {
           return spaceSnap.exists() ? { id: spaceSnap.id, ...spaceSnap.data() } : null;
         })
       );
-      onData(spaces.filter(Boolean));
+
+      memberSpaces.clear();
+      spaces.filter(Boolean).forEach((space) => memberSpaces.set(space.id, space));
+      emit();
     },
     onError
   );
+
+  const unsubOwned = onSnapshot(
+    ownedSpacesQ,
+    (snap) => {
+      ownedSpaces.clear();
+      snap.docs.forEach((d) => ownedSpaces.set(d.id, { id: d.id, ...d.data() }));
+      emit();
+    },
+    onError
+  );
+
+  return () => {
+    unsubMembers();
+    unsubOwned();
+  };
 }
 
 function watchLists(spaceId, onData, onError) {

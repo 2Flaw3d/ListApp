@@ -15,6 +15,10 @@ service cloud.firestore {
         get(/databases/$(database)/documents/spaces/$(spaceId)).data.ownerId == request.auth.uid;
     }
 
+    function hasSpaceAccess(spaceId) {
+      return isSpaceOwner(spaceId) || isSpaceMember(spaceId);
+    }
+
     function listSpaceId(listId) {
       return get(/databases/$(database)/documents/lists/$(listId)).data.spaceId;
     }
@@ -26,24 +30,24 @@ service cloud.firestore {
     }
 
     match /spaces/{spaceId} {
-      allow read: if isSpaceMember(spaceId);
+      allow read: if hasSpaceAccess(spaceId);
       allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
       allow update, delete: if isSpaceOwner(spaceId);
     }
 
     match /spaces/{spaceId}/members/{memberId} {
-      allow read: if isSpaceMember(spaceId);
+      allow read: if isSpaceOwner(spaceId) || (isSignedIn() && request.auth.uid == memberId);
       allow create, update, delete: if isSpaceOwner(spaceId);
     }
 
     match /lists/{listId} {
-      allow read: if isSpaceMember(resource.data.spaceId);
-      allow create: if isSignedIn() && isSpaceMember(request.resource.data.spaceId);
-      allow update, delete: if isSpaceMember(resource.data.spaceId);
+      allow read: if hasSpaceAccess(resource.data.spaceId);
+      allow create: if isSignedIn() && hasSpaceAccess(request.resource.data.spaceId);
+      allow update, delete: if hasSpaceAccess(resource.data.spaceId);
     }
 
     match /lists/{listId}/items/{itemId} {
-      allow read, create, update, delete: if isSpaceMember(listSpaceId(listId));
+      allow read, create, update, delete: if hasSpaceAccess(listSpaceId(listId));
     }
   }
 }

@@ -1,44 +1,47 @@
-const VERSION = "v5";
+const VERSION = "v6";
 const CACHE = `shared-lists-${VERSION}`;
 const STATIC_ASSETS = [
   "./icons/icon-192.svg",
   "./icons/icon-512.svg"
 ];
 
-let messagingReady = false;
+function pickNotificationPayload(raw) {
+  const notification = raw?.notification || raw?.webpush?.notification || {};
+  const data = raw?.data || {};
 
-function initFirebaseMessaging(config) {
-  if (messagingReady || !config) return;
-  try {
-    importScripts("https://www.gstatic.com/firebasejs/12.6.0/firebase-app-compat.js");
-    importScripts("https://www.gstatic.com/firebasejs/12.6.0/firebase-messaging-compat.js");
-    firebase.initializeApp(config);
-    const messaging = firebase.messaging();
-    messaging.onBackgroundMessage((payload) => {
-      const title = payload?.notification?.title || "Liste";
-      const body = payload?.notification?.body || "Nuovo aggiornamento";
-      const link = payload?.fcmOptions?.link || payload?.data?.link || "/";
-      self.registration.showNotification(title, {
-        body,
-        icon: "./icons/icon-192.svg",
-        badge: "./icons/icon-192.svg",
-        data: { link }
-      });
-    });
-    messagingReady = true;
-  } catch {
-    // Ignore setup errors on unsupported browsers.
-  }
+  const title = notification.title || data.title || "Liste";
+  const body = notification.body || data.body || "Nuovo aggiornamento";
+  const link = raw?.fcmOptions?.link || raw?.webpush?.fcmOptions?.link || data.link || "/";
+
+  return {
+    title,
+    options: {
+      body,
+      icon: notification.icon || "/icons/icon-192.svg",
+      badge: notification.badge || "/icons/icon-192.svg",
+      tag: notification.tag || data.tag || undefined,
+      renotify: notification.renotify === true,
+      data: { link }
+    }
+  };
 }
 
-self.addEventListener("message", (event) => {
-  if (event?.data?.type !== "LISTAPP_FIREBASE_CONFIG") return;
-  initFirebaseMessaging(event.data.config);
+self.addEventListener("push", (event) => {
+  let raw = {};
+  try {
+    raw = event.data?.json?.() || {};
+  } catch {
+    raw = {};
+  }
+
+  const { title, options } = pickNotificationPayload(raw);
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const target = event.notification?.data?.link || "/";
+
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
       for (const client of windows) {

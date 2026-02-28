@@ -1,7 +1,6 @@
-const VERSION = "v2";
+const VERSION = "v3";
 const CACHE = `shared-lists-${VERSION}`;
 const STATIC_ASSETS = [
-  "./manifest.webmanifest",
   "./icons/icon-192.svg",
   "./icons/icon-512.svg"
 ];
@@ -24,10 +23,13 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
   const request = event.request;
+  const url = new URL(request.url);
   const accept = request.headers.get("accept") || "";
   const isDocument = request.mode === "navigate" || accept.includes("text/html");
+  const isManifest = url.pathname.endsWith("manifest.webmanifest");
 
-  if (isDocument) {
+  // Always prefer network for HTML and manifest so app metadata updates reliably.
+  if (isDocument || isManifest) {
     event.respondWith(
       fetch(request).catch(() => caches.match(request).then((cached) => cached || caches.match("./")))
     );

@@ -73,6 +73,7 @@ main {
 .topActions {
   display: flex;
   gap: 0.5rem;
+  align-items: center;
 }
 
 .topbar h1,
@@ -148,14 +149,17 @@ button:disabled {
 }
 
 .iconBtn {
-  width: 32px;
-  min-width: 32px;
-  min-height: 32px;
-  height: 32px;
+  width: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  height: 34px;
   padding: 0;
-  border-radius: 8px;
-  font-size: 1rem;
+  border-radius: 999px;
+  font-size: 1.15rem;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .small {
@@ -322,4 +326,8 @@ button:disabled {
   border-radius: 999px;
   padding: 0.1rem 0.45rem;
   font-weight: 600;
+}
+
+.compactActions {
+  align-items: center;
 }

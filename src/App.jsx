@@ -41,6 +41,7 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem("theme") === "dark");
   const [showOpenOnly, setShowOpenOnly] = useState(false);
+  const [collapsedListIds, setCollapsedListIds] = useState([]);
 
   const [newSpaceName, setNewSpaceName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
@@ -146,6 +147,7 @@ function App() {
   const completedCount = items.filter((x) => x.completed).length;
   const visibleItems = useMemo(() => (showOpenOnly ? items.filter((x) => !x.completed) : items), [items, showOpenOnly]);
   const isOwner = activeSpace?.ownerId === user?.uid;
+  const isActiveListCollapsed = activeList ? collapsedListIds.includes(activeList.id) : false;
 
   useEffect(() => {
     if (!selectedSpaceId || !isOwner) {
@@ -176,6 +178,12 @@ function App() {
     setEditingItemId("");
     setEditingItemText("");
   }, [activeList?.id]);
+
+  function toggleListCollapsed(listId) {
+    setCollapsedListIds((prev) =>
+      prev.includes(listId) ? prev.filter((id) => id !== listId) : [...prev, listId]
+    );
+  }
 
   async function withGuard(fn) {
     setError("");
@@ -401,6 +409,7 @@ function App() {
                 onClick={() => setSelectedListId(list.id)}
               >
                 {list.name}
+                {collapsedListIds.includes(list.id) ? " (chiusa)" : ""}
               </button>
             ))}
           </div>
@@ -434,12 +443,15 @@ function App() {
               </h2>
             )}
 
-            <div className="topActions">
+            <div className="topActions compactActions">
               {!editingList ? (
                 <button className="ghost" onClick={() => setEditingList(true)}>
                   Rinomina
                 </button>
               ) : null}
+              <button className="ghost" onClick={() => toggleListCollapsed(activeList.id)}>
+                {isActiveListCollapsed ? "Espandi" : "Chiudi"}
+              </button>
               <button
                 className="danger iconBtn"
                 title="Elimina lista"
@@ -458,111 +470,117 @@ function App() {
             </div>
           </div>
 
-          <div className="row">
-            <input
-              value={newItemText}
-              onChange={(e) => setNewItemText(e.target.value)}
-              placeholder="Aggiungi elemento"
-            />
-            <button
-              disabled={busy || !newItemText.trim()}
-              onClick={() =>
-                withGuard(async () => {
-                  await addItem(user, activeList.id, newItemText);
-                  setNewItemText("");
-                })
-              }
-            >
-              Aggiungi
-            </button>
-          </div>
+          {isActiveListCollapsed ? (
+            <p className="hint">Lista chiusa. Premi "Espandi" per visualizzare elementi e azioni.</p>
+          ) : (
+            <>
+              <div className="row">
+                <input
+                  value={newItemText}
+                  onChange={(e) => setNewItemText(e.target.value)}
+                  placeholder="Aggiungi elemento"
+                />
+                <button
+                  disabled={busy || !newItemText.trim()}
+                  onClick={() =>
+                    withGuard(async () => {
+                      await addItem(user, activeList.id, newItemText);
+                      setNewItemText("");
+                    })
+                  }
+                >
+                  Aggiungi
+                </button>
+              </div>
 
-          <label className="toggle">
-            <input type="checkbox" checked={showOpenOnly} onChange={(e) => setShowOpenOnly(e.target.checked)} />
-            Mostra solo non completati
-          </label>
+              <label className="toggle">
+                <input type="checkbox" checked={showOpenOnly} onChange={(e) => setShowOpenOnly(e.target.checked)} />
+                Mostra solo non completati
+              </label>
 
-          <ul className="items">
-            {visibleItems.map((item, idx) => (
-              <li key={item.id}>
-                {editingItemId === item.id ? (
-                  <div className="inlineEditor grow">
-                    <input value={editingItemText} onChange={(e) => setEditingItemText(e.target.value)} />
-                    <button
-                      disabled={busy || !editingItemText.trim()}
-                      onClick={() =>
-                        withGuard(async () => {
-                          await renameItem(activeList.id, item.id, editingItemText);
-                          setEditingItemId("");
-                          setEditingItemText("");
-                        })
-                      }
-                    >
-                      Salva
-                    </button>
-                    <button
-                      className="ghost"
-                      onClick={() => {
-                        setEditingItemId("");
-                        setEditingItemText("");
-                      }}
-                    >
-                      Annulla
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={!!item.completed}
-                        onChange={(e) => withGuard(() => toggleItem(activeList.id, item.id, e.target.checked))}
-                      />
-                      <span className={item.completed ? "done" : ""}>{item.text}</span>
-                    </label>
-                    <div className="itemActions">
-                      <button
-                        className="ghost iconBtn small"
-                        title="Sposta su"
-                        aria-label="Sposta su"
-                        disabled={busy || idx === 0}
-                        onClick={() => withGuard(() => moveItem(activeList.id, item.id, "up"))}
-                      >
-                        ^
-                      </button>
-                      <button
-                        className="ghost iconBtn small"
-                        title="Sposta giu"
-                        aria-label="Sposta giu"
-                        disabled={busy || idx === visibleItems.length - 1}
-                        onClick={() => withGuard(() => moveItem(activeList.id, item.id, "down"))}
-                      >
-                        v
-                      </button>
-                      <button
-                        className="ghost"
-                        onClick={() => {
-                          setEditingItemId(item.id);
-                          setEditingItemText(item.text || "");
-                        }}
-                      >
-                        Rinomina
-                      </button>
-                      <button
-                        className="danger iconBtn small"
-                        title="Elimina elemento"
-                        aria-label="Elimina elemento"
-                        disabled={busy}
-                        onClick={() => withGuard(() => deleteItem(activeList.id, item.id))}
-                      >
-                        -
-                      </button>
-                    </div>
-                  </>
-                )}
-              </li>
-            ))}
-          </ul>
+              <ul className="items">
+                {visibleItems.map((item, idx) => (
+                  <li key={item.id}>
+                    {editingItemId === item.id ? (
+                      <div className="inlineEditor grow">
+                        <input value={editingItemText} onChange={(e) => setEditingItemText(e.target.value)} />
+                        <button
+                          disabled={busy || !editingItemText.trim()}
+                          onClick={() =>
+                            withGuard(async () => {
+                              await renameItem(activeList.id, item.id, editingItemText);
+                              setEditingItemId("");
+                              setEditingItemText("");
+                            })
+                          }
+                        >
+                          Salva
+                        </button>
+                        <button
+                          className="ghost"
+                          onClick={() => {
+                            setEditingItemId("");
+                            setEditingItemText("");
+                          }}
+                        >
+                          Annulla
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={!!item.completed}
+                            onChange={(e) => withGuard(() => toggleItem(activeList.id, item.id, e.target.checked))}
+                          />
+                          <span className={item.completed ? "done" : ""}>{item.text}</span>
+                        </label>
+                        <div className="itemActions">
+                          <button
+                            className="ghost iconBtn small"
+                            title="Sposta su"
+                            aria-label="Sposta su"
+                            disabled={busy || idx === 0}
+                            onClick={() => withGuard(() => moveItem(activeList.id, item.id, "up"))}
+                          >
+                            ^
+                          </button>
+                          <button
+                            className="ghost iconBtn small"
+                            title="Sposta giu"
+                            aria-label="Sposta giu"
+                            disabled={busy || idx === visibleItems.length - 1}
+                            onClick={() => withGuard(() => moveItem(activeList.id, item.id, "down"))}
+                          >
+                            v
+                          </button>
+                          <button
+                            className="ghost"
+                            onClick={() => {
+                              setEditingItemId(item.id);
+                              setEditingItemText(item.text || "");
+                            }}
+                          >
+                            Rinomina
+                          </button>
+                          <button
+                            className="danger iconBtn small"
+                            title="Elimina elemento"
+                            aria-label="Elimina elemento"
+                            disabled={busy}
+                            onClick={() => withGuard(() => deleteItem(activeList.id, item.id))}
+                          >
+                            -
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </section>
       ) : null}
 

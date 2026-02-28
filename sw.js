@@ -1,4 +1,4 @@
-const VERSION = "v3";
+const VERSION = "v4";
 const CACHE = `shared-lists-${VERSION}`;
 const STATIC_ASSETS = [
   "./icons/icon-192.svg",
@@ -48,3 +48,4 @@ self.addEventListener("fetch", (event) => {
     })
   );
 });
+

@@ -42,6 +42,22 @@ const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });
 
+function sortItems(a, b) {
+  const aOrder = Number.isFinite(a?.order) ? a.order : Number.MAX_SAFE_INTEGER;
+  const bOrder = Number.isFinite(b?.order) ? b.order : Number.MAX_SAFE_INTEGER;
+  if (aOrder !== bOrder) return aOrder - bOrder;
+
+  const aSec = a?.createdAt?.seconds ?? 0;
+  const bSec = b?.createdAt?.seconds ?? 0;
+  if (aSec !== bSec) return aSec - bSec;
+
+  const aNs = a?.createdAt?.nanoseconds ?? 0;
+  const bNs = b?.createdAt?.nanoseconds ?? 0;
+  if (aNs !== bNs) return aNs - bNs;
+
+  return a.id.localeCompare(b.id);
+}
+
 async function ensureUserProfile(user) {
   const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
@@ -101,6 +117,15 @@ async function createSpace(user, name) {
   });
 }
 
+async function renameSpace(spaceId, name) {
+  const cleanName = name.trim();
+  if (!cleanName) throw new Error("Inserisci un nome spazio valido.");
+  await updateDoc(doc(db, "spaces", spaceId), {
+    name: cleanName,
+    updatedAt: serverTimestamp()
+  });
+}
+
 async function inviteMemberByEmail(spaceId, rawEmail) {
   const emailLower = rawEmail.trim().toLowerCase();
   if (!emailLower) throw new Error("Inserisci una email valida.");
@@ -122,6 +147,30 @@ async function inviteMemberByEmail(spaceId, rawEmail) {
   });
 }
 
+async function updateMemberRole(spaceId, memberId, role) {
+  if (!["viewer", "editor"].includes(role)) {
+    throw new Error("Ruolo non valido.");
+  }
+
+  const memberRef = doc(db, "spaces", spaceId, "members", memberId);
+  const snap = await getDoc(memberRef);
+  if (!snap.exists()) throw new Error("Membro non trovato.");
+  if (snap.data().role === "owner") throw new Error("Non puoi modificare il ruolo owner.");
+
+  await updateDoc(memberRef, {
+    role,
+    updatedAt: serverTimestamp()
+  });
+}
+
+async function removeMember(spaceId, memberId) {
+  const memberRef = doc(db, "spaces", spaceId, "members", memberId);
+  const snap = await getDoc(memberRef);
+  if (!snap.exists()) return;
+  if (snap.data().role === "owner") throw new Error("Non puoi rimuovere il proprietario.");
+  await deleteDoc(memberRef);
+}
+
 async function createList(user, spaceId, name) {
   const cleanName = name.trim();
   if (!cleanName) throw new Error("Inserisci un nome lista.");
@@ -135,9 +184,28 @@ async function createList(user, spaceId, name) {
   });
 }
 
+async function renameList(listId, name) {
+  const cleanName = name.trim();
+  if (!cleanName) throw new Error("Inserisci un nome lista valido.");
+
+  await updateDoc(doc(db, "lists", listId), {
+    name: cleanName,
+    updatedAt: serverTimestamp()
+  });
+}
+
 async function addItem(user, listId, text) {
   const cleanText = text.trim();
   if (!cleanText) throw new Error("Inserisci un elemento.");
+
+  const itemsSnap = await getDocs(collection(db, "lists", listId, "items"));
+  let maxOrder = 0;
+  itemsSnap.docs.forEach((d) => {
+    const order = d.data().order;
+    if (Number.isFinite(order) && order > maxOrder) {
+      maxOrder = order;
+    }
+  });
 
   await addDoc(collection(db, "lists", listId, "items"), {
     text: cleanText,
@@ -145,8 +213,54 @@ async function addItem(user, listId, text) {
     completedAt: null,
     createdBy: user.uid,
     createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    order: maxOrder + 1
+  });
+
+  await updateDoc(doc(db, "lists", listId), {
     updatedAt: serverTimestamp()
   });
+}
+
+async function renameItem(listId, itemId, text) {
+  const cleanText = text.trim();
+  if (!cleanText) throw new Error("Inserisci un testo valido.");
+
+  await updateDoc(doc(db, "lists", listId, "items", itemId), {
+    text: cleanText,
+    updatedAt: serverTimestamp()
+  });
+}
+
+async function moveItem(listId, itemId, direction) {
+  if (!["up", "down"].includes(direction)) return;
+
+  const itemsSnap = await getDocs(collection(db, "lists", listId, "items"));
+  const rows = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  rows.sort(sortItems);
+
+  const currentIndex = rows.findIndex((x) => x.id === itemId);
+  if (currentIndex === -1) return;
+
+  const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+  if (targetIndex < 0 || targetIndex >= rows.length) return;
+
+  const current = rows[currentIndex];
+  const target = rows[targetIndex];
+
+  const currentOrder = Number.isFinite(current.order) ? current.order : currentIndex + 1;
+  const targetOrder = Number.isFinite(target.order) ? target.order : targetIndex + 1;
+
+  const batch = writeBatch(db);
+  batch.update(doc(db, "lists", listId, "items", current.id), {
+    order: targetOrder,
+    updatedAt: serverTimestamp()
+  });
+  batch.update(doc(db, "lists", listId, "items", target.id), {
+    order: currentOrder,
+    updatedAt: serverTimestamp()
+  });
+  await batch.commit();
 
   await updateDoc(doc(db, "lists", listId), {
     updatedAt: serverTimestamp()
@@ -257,6 +371,15 @@ function watchUserSpaces(userId, onData, onError) {
   };
 }
 
+function watchMembers(spaceId, onData, onError) {
+  const membersQ = query(collection(db, "spaces", spaceId, "members"), orderBy("addedAt", "asc"));
+  return onSnapshot(
+    membersQ,
+    (snap) => onData(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    onError
+  );
+}
+
 function watchLists(spaceId, onData, onError) {
   const listsQ = query(collection(db, "lists"), where("spaceId", "==", spaceId), orderBy("updatedAt", "desc"));
   return onSnapshot(
@@ -272,15 +395,7 @@ function watchItems(listId, onData, onError) {
     itemsRef,
     (snap) => {
       const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      rows.sort((a, b) => {
-        const aSec = a?.createdAt?.seconds ?? 0;
-        const bSec = b?.createdAt?.seconds ?? 0;
-        if (aSec !== bSec) return aSec - bSec;
-        const aNs = a?.createdAt?.nanoseconds ?? 0;
-        const bNs = b?.createdAt?.nanoseconds ?? 0;
-        if (aNs !== bNs) return aNs - bNs;
-        return a.id.localeCompare(b.id);
-      });
+      rows.sort(sortItems);
       onData(rows);
     },
     onError
@@ -291,16 +406,23 @@ export {
   auth,
   createList,
   createSpace,
+  renameSpace,
   addItem,
+  renameList,
+  renameItem,
+  moveItem,
   deleteItem,
   deleteList,
   deleteSpace,
   inviteMemberByEmail,
+  updateMemberRole,
+  removeMember,
   loginWithGoogle,
   logout,
   syncUserProfile,
   toggleItem,
   watchItems,
   watchLists,
+  watchMembers,
   watchUserSpaces
 };

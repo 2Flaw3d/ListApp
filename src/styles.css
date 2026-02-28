@@ -40,7 +40,7 @@ body {
 }
 
 main {
-  max-width: 900px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 1rem;
 }
@@ -102,7 +102,8 @@ p {
   gap: 0.5rem;
 }
 
-input {
+input,
+select {
   width: 100%;
   min-height: 40px;
   border: 1px solid var(--line);
@@ -180,6 +181,64 @@ button:disabled {
   color: var(--text);
 }
 
+.inlineEditor {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+  align-items: center;
+}
+
+.grow {
+  flex: 1;
+}
+
+.membersList {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.memberRow {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.memberActions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.memberActions select {
+  min-height: 32px;
+  padding: 0.2rem 0.4rem;
+}
+
+.roleBadge {
+  font-size: 0.85rem;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.2rem 0.5rem;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+}
+
+.toggle input {
+  width: 1rem;
+  min-height: auto;
+  height: 1rem;
+}
+
 .items {
   list-style: none;
   padding: 0;
@@ -212,6 +271,12 @@ button:disabled {
   min-height: auto;
 }
 
+.itemActions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .done {
   text-decoration: line-through;
   color: var(--muted);
@@ -227,16 +292,20 @@ button:disabled {
   font-weight: 600;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 760px) {
   .topbar,
   .row,
   .titleRow,
-  .items li {
+  .items li,
+  .memberRow,
+  .inlineEditor {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .topActions {
+  .topActions,
+  .itemActions,
+  .memberActions {
     width: 100%;
   }
 }

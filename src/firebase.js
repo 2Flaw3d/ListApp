@@ -42,6 +42,14 @@ const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });
 
+function isIosStandaloneMode() {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  const isIos = /iPhone|iPad|iPod/i.test(ua);
+  const isStandalone = window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true;
+  return isIos && isStandalone;
+}
+
 function sortItems(a, b) {
   const aOrder = Number.isFinite(a?.order) ? a.order : Number.MAX_SAFE_INTEGER;
   const bOrder = Number.isFinite(b?.order) ? b.order : Number.MAX_SAFE_INTEGER;

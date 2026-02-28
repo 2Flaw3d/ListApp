@@ -1,9 +1,13 @@
-const VERSION = "v1";
+const VERSION = "v2";
 const CACHE = `shared-lists-${VERSION}`;
-const ASSETS = ["./", "./manifest.webmanifest"];
+const STATIC_ASSETS = [
+  "./manifest.webmanifest",
+  "./icons/icon-192.svg",
+  "./icons/icon-512.svg"
+];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(STATIC_ASSETS)));
   self.skipWaiting();
 });
 
@@ -18,5 +22,27 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
-  event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request)));
+
+  const request = event.request;
+  const accept = request.headers.get("accept") || "";
+  const isDocument = request.mode === "navigate" || accept.includes("text/html");
+
+  if (isDocument) {
+    event.respondWith(
+      fetch(request).catch(() => caches.match(request).then((cached) => cached || caches.match("./")))
+    );
+    return;
+  }
+
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      if (cached) return cached;
+      return fetch(request).then((response) => {
+        if (!response || response.status !== 200 || response.type !== "basic") return response;
+        const copy = response.clone();
+        caches.open(CACHE).then((cache) => cache.put(request, copy));
+        return response;
+      });
+    })
+  );
 });

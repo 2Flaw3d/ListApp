@@ -1,10 +1,12 @@
 import { initializeApp } from "firebase/app";
 import {
   browserLocalPersistence,
+  browserSessionPersistence,
   getAuth,
   getRedirectResult,
   GoogleAuthProvider,
-  setPersistence,
+  indexedDBLocalPersistence,
+  initializeAuth,
   signInWithPopup,
   signInWithRedirect,
   signOut
@@ -39,7 +41,16 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const auth = getAuth(app);
+
+let auth;
+try {
+  auth = initializeAuth(app, {
+    persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence]
+  });
+} catch {
+  auth = getAuth(app);
+}
+
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });
 
@@ -92,12 +103,6 @@ async function ensureUserProfile(user) {
 }
 
 async function loginWithGoogle() {
-  try {
-    await setPersistence(auth, browserLocalPersistence);
-  } catch {
-    // Ignore persistence setup errors on restrictive iOS contexts.
-  }
-
   if (isIosDevice() || isIosStandaloneMode()) {
     await signInWithRedirect(auth, googleProvider);
     return;

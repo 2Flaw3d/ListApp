@@ -2,6 +2,7 @@ import { initializeApp } from "firebase/app";
 import {
   browserLocalPersistence,
   getAuth,
+  getRedirectResult,
   GoogleAuthProvider,
   setPersistence,
   signInWithPopup,
@@ -107,6 +108,13 @@ async function loginWithGoogle() {
     await ensureUserProfile(result.user);
   } catch {
     await signInWithRedirect(auth, googleProvider);
+  }
+}
+
+async function completeRedirectSignIn() {
+  const result = await getRedirectResult(auth);
+  if (result?.user) {
+    await ensureUserProfile(result.user);
   }
 }
 
@@ -441,6 +449,7 @@ export {
   updateMemberRole,
   removeMember,
   loginWithGoogle,
+  completeRedirectSignIn,
   logout,
   syncUserProfile,
   toggleItem,

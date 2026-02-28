@@ -3,6 +3,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import {
   addItem,
   auth,
+  completeRedirectSignIn,
   createList,
   createSpace,
   deleteItem,
@@ -54,6 +55,8 @@ function App() {
   const [editingItemText, setEditingItemText] = useState("");
 
   useEffect(() => {
+    completeRedirectSignIn().catch((e) => setError(e.message || "Errore login redirect"));
+
     return onAuthStateChanged(auth, (current) => {
       setUser(current);
       if (current) {

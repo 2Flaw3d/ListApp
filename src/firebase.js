@@ -103,16 +103,32 @@ async function ensureUserProfile(user) {
 }
 
 async function loginWithGoogle() {
-  if (isIosDevice() || isIosStandaloneMode()) {
-    await signInWithRedirect(auth, googleProvider);
-    return;
-  }
-
   try {
     const result = await signInWithPopup(auth, googleProvider);
     await ensureUserProfile(result.user);
-  } catch {
-    await signInWithRedirect(auth, googleProvider);
+    return;
+  } catch (e) {
+    const code = e?.code || "";
+    const message = e?.message || "";
+
+    const popupBlocked = code.includes("popup-blocked") || code.includes("cancelled-popup-request");
+    const popupClosedByUser = code.includes("popup-closed-by-user");
+    const popupUnsupported = code.includes("operation-not-supported-in-this-environment");
+
+    if (popupClosedByUser) {
+      throw e;
+    }
+
+    if (isIosStandaloneMode() && (popupBlocked || popupUnsupported)) {
+      throw new Error("Popup Google bloccato su iPhone web app. Apri in Safari e fai login da browser.");
+    }
+
+    if (popupBlocked || popupUnsupported) {
+      await signInWithRedirect(auth, googleProvider);
+      return;
+    }
+
+    throw new Error(message || "Login Google non riuscito.");
   }
 }
 

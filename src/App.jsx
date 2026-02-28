@@ -5,6 +5,9 @@ import {
   auth,
   createList,
   createSpace,
+  deleteItem,
+  deleteList,
+  deleteSpace,
   inviteMemberByEmail,
   loginWithGoogle,
   logout,
@@ -51,6 +54,7 @@ function App() {
     const unsub = watchUserSpaces(
       user.uid,
       (data) => {
+        setError("");
         setSpaces(data);
         setSelectedSpaceId((prev) => {
           if (prev && data.some((x) => x.id === prev)) return prev;
@@ -68,9 +72,11 @@ function App() {
       setSelectedListId("");
       return;
     }
+
     const unsub = watchLists(
       selectedSpaceId,
       (data) => {
+        setError("");
         setLists(data);
         setSelectedListId((prev) => {
           if (prev && data.some((x) => x.id === prev)) return prev;
@@ -87,9 +93,13 @@ function App() {
       setItems([]);
       return;
     }
+
     const unsub = watchItems(
       selectedListId,
-      (data) => setItems(data),
+      (data) => {
+        setError("");
+        setItems(data);
+      },
       (e) => setError(e.message)
     );
     return () => unsub();
@@ -98,6 +108,7 @@ function App() {
   const activeSpace = useMemo(() => spaces.find((x) => x.id === selectedSpaceId) ?? null, [spaces, selectedSpaceId]);
   const activeList = useMemo(() => lists.find((x) => x.id === selectedListId) ?? null, [lists, selectedListId]);
   const completedCount = items.filter((x) => x.completed).length;
+  const isOwner = activeSpace?.ownerId === user?.uid;
 
   async function withGuard(fn) {
     setError("");
@@ -178,27 +189,52 @@ function App() {
 
       {activeSpace ? (
         <section className="panel">
-          <h2>Condividi spazio: {activeSpace.name}</h2>
-          <div className="row">
-            <input
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              placeholder="email utente da invitare"
-              type="email"
-            />
-            <button
-              disabled={busy || !inviteEmail.trim()}
-              onClick={() =>
-                withGuard(async () => {
-                  await inviteMemberByEmail(activeSpace.id, inviteEmail);
-                  setInviteEmail("");
-                })
-              }
-            >
-              Invita
-            </button>
+          <div className="titleRow">
+            <h2>Condividi spazio: {activeSpace.name}</h2>
+            {isOwner ? (
+              <button
+                className="danger"
+                disabled={busy}
+                onClick={() =>
+                  withGuard(async () => {
+                    if (!window.confirm("Eliminare questo spazio e tutte le sue liste?")) return;
+                    await deleteSpace(activeSpace.id);
+                    setSelectedSpaceId("");
+                    setSelectedListId("");
+                  })
+                }
+              >
+                Elimina spazio
+              </button>
+            ) : null}
           </div>
-          <p className="hint">Nota: l'utente invitato deve aver fatto almeno un login all'app.</p>
+
+          {isOwner ? (
+            <>
+              <div className="row">
+                <input
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="email utente da invitare"
+                  type="email"
+                />
+                <button
+                  disabled={busy || !inviteEmail.trim()}
+                  onClick={() =>
+                    withGuard(async () => {
+                      await inviteMemberByEmail(activeSpace.id, inviteEmail);
+                      setInviteEmail("");
+                    })
+                  }
+                >
+                  Invita
+                </button>
+              </div>
+              <p className="hint">Nota: l'utente invitato deve aver fatto almeno un login all'app.</p>
+            </>
+          ) : (
+            <p className="hint">Solo il proprietario puo invitare persone o eliminare lo spazio.</p>
+          )}
         </section>
       ) : null}
 
@@ -240,9 +276,24 @@ function App() {
 
       {activeList ? (
         <section className="panel">
-          <h2>
-            {activeList.name} ({completedCount}/{items.length})
-          </h2>
+          <div className="titleRow">
+            <h2>
+              {activeList.name} ({completedCount}/{items.length})
+            </h2>
+            <button
+              className="danger"
+              disabled={busy}
+              onClick={() =>
+                withGuard(async () => {
+                  if (!window.confirm("Eliminare questa lista e tutti i suoi elementi?")) return;
+                  await deleteList(activeList.id);
+                  setSelectedListId("");
+                })
+              }
+            >
+              Elimina lista
+            </button>
+          </div>
 
           <div className="row">
             <input
@@ -274,6 +325,17 @@ function App() {
                   />
                   <span className={item.completed ? "done" : ""}>{item.text}</span>
                 </label>
+                <button
+                  className="danger small"
+                  disabled={busy}
+                  onClick={() =>
+                    withGuard(async () => {
+                      await deleteItem(activeList.id, item.id);
+                    })
+                  }
+                >
+                  Elimina
+                </button>
               </li>
             ))}
           </ul>

@@ -12,6 +12,7 @@ import {
   addDoc,
   collection,
   collectionGroup,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -83,17 +84,14 @@ async function createSpace(user, name) {
   const cleanName = name.trim();
   if (!cleanName) throw new Error("Inserisci un nome spazio.");
 
-  const spaceRef = doc(collection(db, "spaces"));
-  const memberRef = doc(db, "spaces", spaceRef.id, "members", user.uid);
-
-  const batch = writeBatch(db);
-  batch.set(spaceRef, {
+  const spaceRef = await addDoc(collection(db, "spaces"), {
     name: cleanName,
     ownerId: user.uid,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
-  batch.set(memberRef, {
+
+  await setDoc(doc(db, "spaces", spaceRef.id, "members", user.uid), {
     uid: user.uid,
     role: "owner",
     email: user.email ?? "",
@@ -101,8 +99,6 @@ async function createSpace(user, name) {
     displayName: user.displayName ?? "Owner",
     addedAt: serverTimestamp()
   });
-
-  await batch.commit();
 }
 
 async function inviteMemberByEmail(spaceId, rawEmail) {
@@ -167,6 +163,41 @@ async function toggleItem(listId, itemId, completed) {
   await updateDoc(doc(db, "lists", listId), {
     updatedAt: serverTimestamp()
   });
+}
+
+async function deleteItem(listId, itemId) {
+  await deleteDoc(doc(db, "lists", listId, "items", itemId));
+  await updateDoc(doc(db, "lists", listId), {
+    updatedAt: serverTimestamp()
+  });
+}
+
+async function deleteList(listId) {
+  const itemsRef = collection(db, "lists", listId, "items");
+  const itemsSnap = await getDocs(itemsRef);
+
+  const batch = writeBatch(db);
+  itemsSnap.docs.forEach((d) => batch.delete(d.ref));
+  batch.delete(doc(db, "lists", listId));
+  await batch.commit();
+}
+
+async function deleteSpace(spaceId) {
+  const membersSnap = await getDocs(collection(db, "spaces", spaceId, "members"));
+  const listsSnap = await getDocs(query(collection(db, "lists"), where("spaceId", "==", spaceId)));
+
+  for (const listDoc of listsSnap.docs) {
+    const itemsSnap = await getDocs(collection(db, "lists", listDoc.id, "items"));
+    const itemsBatch = writeBatch(db);
+    itemsSnap.docs.forEach((itemDoc) => itemsBatch.delete(itemDoc.ref));
+    itemsBatch.delete(listDoc.ref);
+    await itemsBatch.commit();
+  }
+
+  const membersBatch = writeBatch(db);
+  membersSnap.docs.forEach((memberDoc) => membersBatch.delete(memberDoc.ref));
+  membersBatch.delete(doc(db, "spaces", spaceId));
+  await membersBatch.commit();
 }
 
 function watchUserSpaces(userId, onData, onError) {
@@ -249,6 +280,9 @@ export {
   createList,
   createSpace,
   addItem,
+  deleteItem,
+  deleteList,
+  deleteSpace,
   inviteMemberByEmail,
   loginWithGoogle,
   logout,
